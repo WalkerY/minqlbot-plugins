@@ -49,7 +49,7 @@ class emptyactions(minqlbot.Plugin):
                 new_map = random.choice([s.strip() for s in config["EmptyActions"]["MapOnEmpty"].split(",")])
             except IndexError:
                 return
-            
+
         if new_map != "":
-            self.change_map(new_map)
+            self.changemap(new_map)
         
