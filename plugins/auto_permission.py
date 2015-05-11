@@ -23,25 +23,27 @@ class auto_permission(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
         if "permission" not in self.plugins:
-            self.debug("Plugin Listperm requires Permission plugin.")
+            self.debug("Plugin Auto_permission requires Permission plugin.")
             minqlbot.unload_plugin("auto_permission")
         else:
             self.add_hook("player_connect", self.handle_player_connect)
         
     def handle_player_connect(self, player):    
+        config = minqlbot.get_config()
+        
         if "AutoPermission" in config and "GamesCompletedPermission1" in config["AutoPermission"]:
             level1_completed = int(config["AutoPermission"]["GamesCompletedPermission1"])
         else:
             level1_completed = 0
-
+        
         if "AutoPermission" in config and "GamesCompletedPermission2" in config["AutoPermission"]:
             level2_completed = int(config["AutoPermission"]["GamesCompletedPermission2"])
         else:
             level2_completed = 0      
-
+        
         if (level1_completed == 0 and level2_completed == 0):
             return None
-
+        
         if "AutoPermission" in config and "ExceptionList" in config["AutoPermission"]:
             exception_list = [s.strip().lower() for s in config["AutoPermission"]["ExceptionList"].split(",")]
         else:
@@ -65,14 +67,14 @@ class auto_permission(minqlbot.Plugin):
         completed = row["games_completed"]
         if not completed:
             return None
-            
-        if (perm < 1 and completed >= level1_completed):
-            permission.set_permissions(name, 1, minqlbot.CHAT_CHANNEL)
+             
+        if (perm < 1 and completed > level1_completed):
+            permission.set_permissions(name, 1, minqlbot.CONSOLE_CHANNEL)
             self.msg("^6{}^7's permission level has been automatically set to ^6{}^7 due to completion of at least ^6{}^7 games."
                 .format(name, 1, level1_completed))
                 
-        if (perm < 2 and completed >= level2_completed):
-            permission.set_permissions(name, 2, minqlbot.CHAT_CHANNEL)
+        if (perm < 2 and completed > level2_completed):
+            permission.set_permissions(name, 2, minqlbot.CONSOLE_CHANNEL)
             self.msg("^6{}^7's permission level has been automatically set to ^6{}^7 due to completion of at least ^6{}^7 games."
                 .format(name, 2, level2_completed))         
             
