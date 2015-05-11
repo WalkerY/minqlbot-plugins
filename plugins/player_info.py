@@ -1,4 +1,3 @@
-# minqlbot - A Quake Live server administrator bot.
 # Copyright (C) WalkerY (github) aka WalkerX (ql)
 
 # This file is part of minqlbot.
@@ -30,8 +29,15 @@ class player_info(minqlbot.Plugin):
         
     def cmd_info(self, player, msg, channel):
         if len(msg) < 2:
-            return minqlbot.RET_USAGE            
-        threading.Thread(target=self.get_profile_thread, args=(msg[1], channel)).start()
+            return minqlbot.RET_USAGE
+
+        player_ = self.find_player(msg[1])
+        if player_:
+            name = player_.clean_name.lower()
+        else:
+            name = self.clean_text(msg[1]).lower()
+            
+        threading.Thread(target=self.get_profile_thread, args=(name, channel)).start()
         
     def get_profile_thread(self, name, channel):
         try:

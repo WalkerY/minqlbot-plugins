@@ -31,7 +31,7 @@ class serverratings(minqlbot.Plugin):
             return
 
         teams = self.teams()
-        teams = teams["red"] + teams["blue"]
+        teams = teams["red"] + teams["blue"] + teams["spectator"]
         self.print_ratings(teams, channel, self.game().short_type)
 
     def print_ratings(self, names, channel, game_type):
@@ -51,11 +51,17 @@ class serverratings(minqlbot.Plugin):
                 return False
 
         teams = self.teams()
+        spec_sorted = sorted(teams["spectator"], key=lambda x: balance.cache[x.clean_name.lower()][game_type]["elo"], reverse=True)
         red_sorted = sorted(teams["red"], key=lambda x: balance.cache[x.clean_name.lower()][game_type]["elo"], reverse=True)
         blue_sorted = sorted(teams["blue"], key=lambda x: balance.cache[x.clean_name.lower()][game_type]["elo"], reverse=True)
-        red = "^7" + ", ".join(["{}: ^1{}^7".format(p, balance.cache[p.clean_name.lower()][game_type]["elo"]) for p in red_sorted])
-        blue = "^7" + ", ".join(["{}: ^4{}^7".format(p, balance.cache[p.clean_name.lower()][game_type]["elo"]) for p in blue_sorted])
+        if spec_sorted:
+            spec = "^7S: " + ", ".join(["^5{}: {}^7".format(p.clean_name, balance.cache[p.clean_name.lower()][game_type]["elo"]) for p in spec_sorted])
+            channel.reply(spec)
+        if red_sorted:
+            red = "^7R: " + ", ".join(["^1{}: {}^7".format(p.clean_name, balance.cache[p.clean_name.lower()][game_type]["elo"]) for p in red_sorted])
+            channel.reply(red)
+        if blue_sorted:
+            blue = "^7B: " + ", ".join(["^4{}: {}^7".format(p.clean_name, balance.cache[p.clean_name.lower()][game_type]["elo"]) for p in blue_sorted])
+            channel.reply(blue)
 
-        channel.reply(red)
-        channel.reply(blue)
         return True

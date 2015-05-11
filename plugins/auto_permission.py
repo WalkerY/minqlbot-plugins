@@ -1,4 +1,3 @@
-# minqlbot - A Quake Live server administrator bot.
 # Copyright (C) WalkerY (github) aka WalkerX (ql)
 
 # This file is part of minqlbot.

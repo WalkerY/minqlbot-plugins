@@ -1,4 +1,3 @@
-# minqlbot - A Quake Live server administrator bot.
 # Copyright (C) WalkerY (github) aka WalkerX (ql)
 
 # This file is part of minqlbot.
@@ -27,7 +26,7 @@ class listperms(minqlbot.Plugin):
             self.debug("Plugin Listperm requires Permission plugin.")
             minqlbot.unload_plugin("listperms")
         else:
-            self.add_command(("getperms","listperms"), self.cmd_getperms, 1)
+            self.add_command(("getperms","listperms"), self.cmd_getperms, 0)
         
     def cmd_getperms(self, player, msg, channel):
         permission = self.plugins["permission"]
