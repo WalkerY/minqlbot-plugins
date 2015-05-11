@@ -48,28 +48,27 @@ class player_info(minqlbot.Plugin):
             else:
                 games_total_p = wins + losses + quits
             
-            c = self.db_query("SELECT * FROM Players WHERE name=?", name.lower())
-            row = c.fetchone()
-            if not row:
-                return None
-
-            completed = row["games_completed"]
-            left = row["games_left"]
-            if not completed:
-                completed = 0
-            if not left:
-                left = 0
-                
-            if left + completed == 0:
-                games_here_p = 1
-            else:
-                games_here_p = left + completed
-            
             info = ["^7created ^6{} days ago".format(delta.days),
                     "^7total games ^6{}".format(wins + quits + losses),
-                    "^7total quit frequency ^6{} percent".format(round(quits/(games_total_p)*100)),
-                    "^7games here ^6{}".format(completed + left),
-                    "^7quit frequency here ^6{} percent".format(round(left/(games_here_p)*100))]
+                    "^7total quit frequency ^6{} percent".format(round(quits/(games_total_p)*100))]
+                    
+            c = self.db_query("SELECT * FROM Players WHERE name=?", name.lower())
+            row = c.fetchone()
+            if row:
+                completed = row["games_completed"]
+                left = row["games_left"]
+                if not completed:
+                    completed = 0
+                if not left:
+                    left = 0
+                    
+                if left + completed == 0:
+                    games_here_p = 1
+                else:
+                    games_here_p = left + completed                                
+
+                    info += ["^7games here ^6{}".format(completed + left),
+                        "^7quit frequency here ^6{} percent".format(round(left/(games_here_p)*100))]
 
             channel.reply("^7Account ^6{}^7: ".format(name) + "^7, ".join(info))
         except:
