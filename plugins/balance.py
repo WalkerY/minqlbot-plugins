@@ -47,6 +47,7 @@ import plugins.qlranks as qlranks
 import minqlbot
 import random
 import re
+import threading
 
 FAILS_ALLOWED = 2
 QLRANKS_GAMETYPES = ("ca", "ffa", "ctf", "duel", "tdm")
@@ -61,12 +62,11 @@ class balance(minqlbot.Plugin):
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_command(("teams", "teens"), self.cmd_teams)
         self.add_command("balance", self.cmd_balance, 1)
-        self.add_command("do", self.cmd_do, 2)
+        self.add_command("do", self.cmd_do, 1)
         self.add_command(("agree", "a"), self.cmd_agree)
         self.add_command(("setrating", "setelo"), self.cmd_setrating, 3, usage="<full_name> <rating>")
-        self.add_command(("getrating", "getelo", "elo", "dicksize"), self.cmd_getrating, usage="<full_name>")
+        self.add_command(("getrating", "getelo", "elo"), self.cmd_getrating, usage="<full_name>")
         self.add_command(("remrating", "remelo"), self.cmd_remrating, 3, usage="<full_name>")
-        self.add_command("limit", self.cmd_limit, 0)
 
         self.suggested_pair = None
         self.suggested_agree = [False, False]
@@ -82,7 +82,16 @@ class balance(minqlbot.Plugin):
         # How many times we've failed a request in a row so we don't loop forever.
         self.fails = 0
 
+        # We flag players who ought to be kickbanned, but since we delay it, we keep
+        # a list of players who are flagged and prevent them from starting votes or joining.
+        self.ban_flagged = []
+        self.ban_flagged_lock = threading.RLock()
+
     def handle_vote_called(self, caller, vote, args):
+        if self.is_flagged(caller):
+            self.vote_no()
+            return
+
         config = minqlbot.get_config()
         if vote == "shuffle" and "Balance" in config:
             auto_reject = config["Balance"].getboolean("VetoUnevenShuffleVote", fallback=False)
@@ -117,10 +126,16 @@ class balance(minqlbot.Plugin):
 
     def handle_team_switch(self, player, old_team, new_team):
         if new_team != "spectator":
-            gametype = self.game().short_type
-            self.check_rating_requirements([player.clean_name.lower()], None, gametype)
+            if self.is_flagged(player):
+                player.put("spectator")
+                return
+            else:
+                gametype = self.game().short_type
+                self.check_rating_requirements([player.clean_name.lower()], None, gametype)
 
     def cmd_teams(self, player, msg, channel):
+        """Displays the average ratings of each team, the difference between those values,
+        as well as a switch suggestion that the bot determined would improve balance."""
         teams = self.teams()
         diff = len(teams["red"]) - len(teams["blue"])
         if not diff:
@@ -129,6 +144,8 @@ class balance(minqlbot.Plugin):
             channel.reply("^7Both teams should have the same number of players.")
 
     def cmd_balance(self, player, msg, channel):
+        """Makes the bot switch players around in an attempt to create balanced teams based
+        on ratings."""
         teams = self.teams()
         total = len(teams["red"]) + len(teams["blue"])
         if total % 2 == 0:
@@ -137,12 +154,14 @@ class balance(minqlbot.Plugin):
             channel.reply("^7I can't balance when the total number of players is not an even number.")
 
     def cmd_do(self, player, msg, channel):
+        """Forces a suggested switch to be done."""
         if self.suggested_pair:
             self.switch(self.suggested_pair[0], self.suggested_pair[1])
             self.suggested_pair = None
             self.suggested_agree = [False, False]
 
     def cmd_agree(self, player, msg, channel):
+        """After the bot suggests a switch, players in question can use this to agree to the switch."""
         if self.suggested_pair:
             if self.suggested_pair[0] == player:
                 self.suggested_agree[0] = True
@@ -155,6 +174,7 @@ class balance(minqlbot.Plugin):
                 self.suggested_agree = [False, False]
 
     def cmd_setrating(self, player, msg, channel):
+        """Set a player's rating locally, in the game mode the bot is currently in."""
         if len(msg) < 3:
             return minqlbot.RET_USAGE
 
@@ -198,14 +218,11 @@ class balance(minqlbot.Plugin):
         return
 
     def cmd_getrating(self, player, msg, channel):
+        """Get someone's rating. Be it locally set or from QLRanks."""
         if len(msg) < 2:
             name = player.clean_name.lower()
         else:
-            player_ = self.find_player(msg[1])
-            if player_:
-                name = player_.clean_name.lower()
-            else:
-                name = self.clean_text(msg[1]).lower()
+            name = self.clean_text(msg[1]).lower()
 
         if not self.is_sane([name]):
             return
@@ -222,6 +239,7 @@ class balance(minqlbot.Plugin):
                 .format(msg[1], game.type, row["rating"]))
 
     def cmd_remrating(self, player, msg, channel):
+        """Remove a locally set rating in the game mode the bot is currently in."""
         if len(msg) < 2:
             return minqlbot.RET_USAGE
 
@@ -238,16 +256,7 @@ class balance(minqlbot.Plugin):
             if name in self.cache and short_game_type in self.cache[name]:
                 del self.cache[name][short_game_type]
             return
-            
-    def cmd_limit(self, player, msg, channel):            
-        config = minqlbot.get_config()
-        min_rating = 0
-        if "Balance" in config:
-            if "MinimumRating" in config["Balance"]:
-                min_rating = int(config["Balance"]["MinimumRating"])
-        min_rating = min_rating + self.delta_rating("test", 1)
-        channel.reply("^7Current ELO limit to join or change teams is ^6{}^7. It's higher when more ppl are on server.".format(min_rating))
- 
+
     def fetch_player_ratings(self, names, channel, game_type, use_local=True, use_aliases=True):
         """Fetch ratings from the database and fall back to QLRanks.
 
@@ -292,8 +301,8 @@ class balance(minqlbot.Plugin):
             lookup = qlranks.QlRanks(self, names, check_alias=conf_alias)
             with self.rlock:
                 self.lookups[lookup.uid] = (lookup, names, channel)
-                lookup.start()
-                return True
+            lookup.start()
+            return True
         else:
             return False
 
@@ -394,7 +403,7 @@ class balance(minqlbot.Plugin):
                 del self.lookups[lookup.uid]
                 return
             elif lookup.status == -2:
-                err_msg = "^7QLRanks is DOWN temporarily. ^1ELO limits might work PARTIALLY and BALANCE may not work."
+                err_msg = "^7The connection to QLRanks timed out."
             else:
                 err_msg = "^7The connection to QLRanks failed with error code: ^6{}".format(lookup.status)
             channel = self.lookups[lookup.uid][2]
@@ -419,37 +428,6 @@ class balance(minqlbot.Plugin):
                 if task[0](*task[1]):
                     self.pending.remove(task)
 
-    def delta_rating(self, name, tojoin = 0):
-        teams = self.teams()
-        players_count = len(teams["red"]) + len(teams["blue"]) + len(teams["spectator"])
-        teams_players = len(teams["red"]) + len(teams["blue"])
-        specs = len(teams["spectator"])
-        if (specs >= 1):
-            specs -= tojoin
-        teams_players += tojoin
-        
-        delta = 0        
-        delta += players_count * 30
-        if (teams_players <= 2):
-            delta -= 800
-        if (teams_players <= 4):
-            delta -= 300
-        elif (teams_players <= 6):
-            delta -= 100
-        elif (teams_players <= 8):
-            delta += specs * 25 - 100
-        elif (teams_players <= 9):
-            delta += specs * 25 + 100
-        else:
-            delta += 0
-        if (name.lower() == "walkerx"):
-            delta -= 1000
-        if (name.lower() == "samok86" and tojoin == 0):
-            delta -= 200
-        if (delta >= 600):
-            delta = 600
-        return delta    
-    
     def check_rating_requirements(self, names, channel, game_type):
         """Checks if someone meets the rating requirements to play on the server."""
         config = minqlbot.get_config()
@@ -484,28 +462,33 @@ class balance(minqlbot.Plugin):
                 rating = self.cache[name][game_type]["real_elo"]
             else:
                 rating = self.cache[name][game_type]["elo"]
-                        
-            delta = 0
-            delta = self.delta_rating(name)
-            if (min_rating == 0):
-                delta = 0
-            if (rating > max_rating and max_rating != 0) or (rating < (min_rating+delta) and min_rating != 0):
+
+            if (rating > max_rating and max_rating != 0) or (rating < min_rating and min_rating != 0):
                 allow_spec = config["Balance"].getboolean("AllowSpectators", fallback=True)
                 if allow_spec:
-                    p = self.player(name)
-                    if p.team != "spectator":
+                    player = self.player(name)
+                    if not player:
+                        return True
+                    if player.team != "spectator":
                         self.put(name, "spectator")
                         if rating > max_rating and max_rating != 0:
                             self.tell("^7Sorry, but you can have at most ^6{}^7 rating to play here and you have ^6{}^7."
                                 .format(max_rating, rating), name)
-                        elif rating < (min_rating+delta) and min_rating != 0:
-                            self.tell("^7Sorry, but you need at least ^6{}^7 rating to play NOW and you have ^6{}^7."
-                                .format(min_rating+delta, rating), name)
-                            #self.tell("^7Kick noobs and afks from server to lower ELO limit. Try ^6!selo^7. Sorry for inconvenience - join later.")
-                            #self.delay(20, self.kickban, args=(name, ))
+                        elif rating < min_rating and min_rating != 0:
+                            self.tell("^7Sorry, but you need at least ^6{}^7 rating to play here and you have ^6{}^7."
+                                .format(min_rating, rating), name)
                 else:
-                    self.kickban(name)
-                    self.debug(name + " was kicked for not being within the rating requirements.")
+                    player = self.player(name)
+                    if not player:
+                        return True
+                    elif player.team != "spectator":
+                        self.put(player, "spectator")
+                    self.flag_player(player)
+                    player.mute()
+                    self.delay(25, lambda: player.tell("^7You do not meet the rating requirements on this server. You will be kicked shortly."))
+                    self.delay(60, player.kickban)
+
+        return True
 
     def individual_rating(self, name, channel, game_type):
         not_cached = self.not_cached(game_type, (name,))
@@ -555,7 +538,6 @@ class balance(minqlbot.Plugin):
         """Send average team ratings and an improvement suggestion to whoever asked for it.
 
         """
-        delta = 100
         teams = self.teams()
         diff = len(teams["red"]) - len(teams["blue"])
         if diff:
@@ -585,13 +567,13 @@ class balance(minqlbot.Plugin):
         diff_rounded = abs(round(avg_red) - round(avg_blue)) # Round individual averages.
         if round(avg_red) > round(avg_blue):
             channel.reply("^1{} ^7vs ^4{}^7 - DIFFERENCE: ^1{}"
-                .format(round(avg_red)+delta, round(avg_blue)+delta, diff_rounded))
+                .format(round(avg_red), round(avg_blue), diff_rounded))
         elif round(avg_red) < round(avg_blue):
             channel.reply("^1{} ^7vs ^4{}^7 - DIFFERENCE: ^4{}"
-                .format(round(avg_red)+delta, round(avg_blue)+delta, diff_rounded))
+                .format(round(avg_red), round(avg_blue), diff_rounded))
         else:
             channel.reply("^1{} ^7vs ^4{}^7 - Holy shit!"
-                .format(round(avg_red)+delta, round(avg_blue)+delta))
+                .format(round(avg_red), round(avg_blue)))
 
         config = minqlbot.get_config()
         if "Balance" in config:
@@ -606,7 +588,7 @@ class balance(minqlbot.Plugin):
                 self.suggested_pair = (switch[0][0], switch[0][1])
                 self.suggested_agree = [False, False]
         else:
-            i = random.randint(0, 4)
+            i = random.randint(0, 99)
             if not i:
                 channel.reply("^7Teens look ^6good!")
             else:
@@ -619,7 +601,6 @@ class balance(minqlbot.Plugin):
         """Balance teams based on average team ratings.
 
         """
-        delta = 100
         teams = self.teams()
         total = len(teams["red"]) + len(teams["blue"])
         if total % 2 == 1:
@@ -679,13 +660,13 @@ class balance(minqlbot.Plugin):
                 diff_rounded = abs(round(avg_red) - round(avg_blue)) # Round individual averages.
                 if round(avg_red) > round(avg_blue):
                     self.msg("^7Done! ^1{} ^7vs ^4{}^7 - DIFFERENCE: ^1{}"
-                        .format(round(avg_red)+delta, round(avg_blue)+delta, diff_rounded))
+                        .format(round(avg_red), round(avg_blue), diff_rounded))
                 elif round(avg_red) < round(avg_blue):
                     self.msg("^7Done! ^1{} ^7vs ^4{}^7 - DIFFERENCE: ^4{}"
-                        .format(round(avg_red)+delta, round(avg_blue)+delta, diff_rounded))
+                        .format(round(avg_red), round(avg_blue), diff_rounded))
                 else:
                     self.msg("^7Done! ^1{} ^7vs ^4{}^7 - Holy shit!"
-                        .format(round(avg_red)+delta, round(avg_blue)+delta))
+                        .format(round(avg_red), round(avg_blue)))
             else:
                 channel.reply("^7Teams are good! Nothing to balance.")
             return True
@@ -740,3 +721,18 @@ class balance(minqlbot.Plugin):
                 return False
 
             return True
+
+    def flag_player(self, player):
+        with self.ban_flagged_lock:
+            if player not in self.ban_flagged:
+                self.ban_flagged.append(player)
+    
+    def unflag_player(self, player):
+        with self.ban_flagged_lock:
+            if player in self.ban_flagged:
+                self.ban_flagged.remove(player)
+
+    def is_flagged(self, player):
+        with self.ban_flagged_lock:
+            return player in self.ban_flagged
+
