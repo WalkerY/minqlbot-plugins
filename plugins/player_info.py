@@ -67,8 +67,11 @@ class player_info(minqlbot.Plugin):
                 else:
                     games_here_p = left + completed                                
 
-                    info += ["^7games here ^6{}".format(completed + left),
+                info += ["^7games here ^6{}".format(completed + left),
                         "^7quit frequency here ^6{} percent".format(round(left/(games_here_p)*100))]
+            else:
+                info += ["^7games here ^60",
+                        "^7quit frequency here ^60 percent"]
 
             channel.reply("^7Account ^6{}^7: ".format(name) + "^7, ".join(info))
         except:
