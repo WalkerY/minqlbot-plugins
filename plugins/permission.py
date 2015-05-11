@@ -23,8 +23,7 @@ class permission(minqlbot.Plugin):
         self.add_command("setperm", self.cmd_setperm, 5, usage="<name> <level>")
         self.add_command("getperm", self.cmd_getperm, 5, usage="<name>")
         self.add_command("myperm", self.cmd_myperm, 0, channels=("chat", "team_chat", "tell"))
-        self.add_command("getperms", self.cmd_getperms, 1)
-
+        
     def cmd_setperm(self, player, msg, channel):
         if len(msg) < 3:
             return minqlbot.RET_USAGE
@@ -40,14 +39,7 @@ class permission(minqlbot.Plugin):
             channel.reply("^7I do not know ^6{}^7.".format(msg[1]))
         else:
             channel.reply("^6{}^7 has permission level ^6{}^7.".format(msg[1], perm))
-            
-    def cmd_getperms(self, player, msg, channel):
-        teams = self.teams() 
-        players = teams["red"] + teams["blue"] + teams["spectator"]
-        sorted_list = sorted(players, key=lambda x: self.get_permission(x.clean_name.lower()), reverse=True)
-        sorted_string = ", ".join(["{} ^6{}^7".format(p.name, self.get_permission(p.clean_name.lower())) for p in sorted_list if self.get_permission(p.clean_name.lower()) > 0 and self.get_permission(p.clean_name.lower()) < 999])
-        channel.reply("^7Permission levels: " + sorted_string)
-        
+      
     def cmd_myperm(self, player, msg, channel):
         name = player.clean_name.lower()
         perm = self.get_permission(name)
