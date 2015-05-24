@@ -31,11 +31,11 @@ COMMAND_FLOOD_NUMBER_OF_SAMPLES = 5
 COMMAND_FLOOD_QUALIFYING_FREQUENCY = 1.5
 # Ban period when flood is detected. String format the same as in 'ban'
 # command in 'ban' plugin.
-BAN_DURATION = "24 hours"
+BAN_DURATION = "1 hour"
 BAN_REASON = "Flooding bot with commands."
 
 MIN_TOTAL_SECONDS = \
-    COMMAND_FLOOD_NUMBER_OF_SAMPLES * COMMAND_FLOOD_QUALIFYING_FREQUENCY
+    COMMAND_FLOOD_NUMBER_OF_SAMPLES / COMMAND_FLOOD_QUALIFYING_FREQUENCY
          
 class floodprotect(minqlbot.Plugin):
     def __init__(self):
@@ -74,7 +74,7 @@ class floodprotect(minqlbot.Plugin):
         if name not in self.timestamp:
             self.timestamp[name] = datetime.datetime.now()
             self.deltas[name] = collections.deque()
-            self.deltas_sum[name] = 0
+            self.deltas_sum[name] = datetime.timedelta()
             return
         
         # At least one timestamp was already saved.
@@ -85,7 +85,7 @@ class floodprotect(minqlbot.Plugin):
         self.deltas[name].append(delta)
         self.deltas_sum[name] += delta
         
-        samples = self.deltas[name].count() + 1
+        samples = len(self.deltas[name]) + 1
         
         # If we have too many samples, we remove the least recent one.
         if samples > COMMAND_FLOOD_NUMBER_OF_SAMPLES:
@@ -99,7 +99,8 @@ class floodprotect(minqlbot.Plugin):
             
             seconds = float(self.deltas_sum[name].seconds)
             seconds += self.deltas_sum[name].microseconds / 1000000
-            
+            self.debug("cur: {}".format(seconds))
+            self.debug("min: {}".format(MIN_TOTAL_SECONDS))
             if seconds >= MIN_TOTAL_SECONDS:
                 return
             
@@ -117,10 +118,3 @@ class floodprotect(minqlbot.Plugin):
         else:
             self.kickban(player.clean_name.lower())
             self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
-            #self.kick_player(player)
-            #self.kicklist = 
-            
-    #def kick_player(self, player):
-    #    self.kickban(player.clean_name.lower())
-    #    self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
-    
