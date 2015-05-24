@@ -296,7 +296,8 @@ class ban(minqlbot.Plugin):
                         player.put("spectator")
                     self.flag_player(player)
                     player.mute()
-                    self.delay(25, lambda: player.tell("^7Sorry, but your account is too new to play here. You will be kicked shortly."))
+                    self.delay(25, lambda: player.tell("^7Sorry, but your account is too new to play here or you have too many quits on your profile."))
+                    self.delay(25.5, lambda: player.tell("^7You will be kicked shortly."))
                     self.delay(60, player.kickban)
         except:
             e = traceback.format_exc().rstrip("\n")
