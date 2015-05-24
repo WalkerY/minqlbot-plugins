@@ -118,3 +118,4 @@ class floodprotect(minqlbot.Plugin):
         else:
             self.kickban(player.clean_name.lower())
             self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
+            
