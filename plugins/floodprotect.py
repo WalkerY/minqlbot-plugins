@@ -99,8 +99,6 @@ class floodprotect(minqlbot.Plugin):
             
             seconds = float(self.deltas_sum[name].seconds)
             seconds += self.deltas_sum[name].microseconds / 1000000
-            self.debug("cur: {}".format(seconds))
-            self.debug("min: {}".format(MIN_TOTAL_SECONDS))
             if seconds >= MIN_TOTAL_SECONDS:
                 return
             
@@ -110,12 +108,19 @@ class floodprotect(minqlbot.Plugin):
         if "ban" in self.plugins:
             ban = self.plugins["ban"]
             ban.cmd_ban(player, 
-                        "ban {} {} {}".format(player.clean_name.lower(),
-                                              BAN_DURATION,
-                                              BAN_REASON),
+                        ["ban", 
+                         player.clean_name.lower(),
+                         BAN_DURATION,
+                         BAN_REASON],
                         minqlbot.CHAT_CHANNEL)
             self.msg("^7{}^7 ban reason: ^1{}".format(player.name, BAN_REASON))
         else:
             self.kickban(player.clean_name.lower())
             self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
+            #self.kick_player(player)
+            #self.kicklist = 
             
+    #def kick_player(self, player):
+    #    self.kickban(player.clean_name.lower())
+    #    self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
+    
