@@ -20,8 +20,9 @@
 import minqlbot
 import datetime
 import collections
+import threading
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 # Number of samples we collect in order to determine if player is
 # flooding bot. Each bot command sent to bot counts as 1 sample.
@@ -36,12 +37,17 @@ BAN_REASON = "Flooding bot with commands."
 
 MIN_TOTAL_SECONDS = \
     COMMAND_FLOOD_NUMBER_OF_SAMPLES / COMMAND_FLOOD_QUALIFYING_FREQUENCY
+    
+# Timeout for local cache of recently banned flooding players
+COMMAND_FLOOD_BANNED_TIMEOUT = 5 * 60
+         
          
 class floodprotect(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
         self.add_hook("chat", self.handle_chat, minqlbot.PRI_HIGH)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
+        self.add_hook("unload", self.handle_unload)
         
         # Timestamp of the most recent command per player.
         self.timestamp = {}
@@ -50,12 +56,29 @@ class floodprotect(minqlbot.Plugin):
         # Sum of all Timedeltas for each player.
         self.deltas_sum = {}
         
+        # We cache most recently banned players to avoid double 
+        # banning and checking in db.
+        self.banned = {}
+        self.banned_lock = threading.RLock()
+
+    def handle_unload(self):
+        with self.banned_lock:
+            for thread in self.banned:
+                thread.cancel()
+        
     def handle_chat(self, player, msg, channel):
-        if player.clean_name.lower() == minqlbot.NAME.lower():
+        name = player.clean_name.lower()
+        if name == minqlbot.NAME.lower():
             return
-    
         if not msg.startswith(minqlbot.COMMAND_PREFIX):
             return
+            
+        with self.banned_lock:
+            if name in self.banned:
+                # kickban here is mostly for the case that 'ban' plugin
+                # is not loaded and player quickly returned.
+                self.kickban(name) 
+                return
         
         self.new_command(player)
 
@@ -117,3 +140,21 @@ class floodprotect(minqlbot.Plugin):
         else:
             self.kickban(player.clean_name.lower())
             self.msg("^7{}^7 kick reason: ^1{}".format(player.name, BAN_REASON))
+
+        # Add player to cache and set timer to remove it
+        with self.banned_lock:
+            name = player.clean_name.lower()
+            self.banned[name] = \
+                threading.Timer(COMMAND_FLOOD_BANNED_TIMEOUT, 
+                                function=self.remove_banned,
+                                args=(name, ))
+            self.banned[name].start()
+            self.debug("Player {} added to banned cache.".format(name))
+        
+    def remove_banned(self, name):
+        with self.banned_lock:
+            if name in self.banned:
+                del self.banned[name]
+        self.debug("Player {} removed from banned cache.".format(name))
+                
+                
