@@ -170,7 +170,7 @@ class FloodProcessor:
         self.plugin.debug("Player {} removed from banned cache.".format(name))
          
 
-class floodprotect2(minqlbot.Plugin):
+class floodprotect(minqlbot.Plugin):
     flood_processors = {}
 
     def __init__(self):
