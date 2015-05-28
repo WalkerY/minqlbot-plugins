@@ -28,7 +28,7 @@ import collections
 __version__ = '0.9.0'
 
 # List of excluded from specing.
-EXCLUDE_LIST = ["walkerx", "walkerz", "walkery", "lastaid"]
+EXCLUDE_LIST = ["walkerx", "walkerz", "walkery"]
          
          
 class autospec(minqlbot.Plugin):
@@ -73,5 +73,5 @@ class autospec(minqlbot.Plugin):
         for player in players:
             self.put(player, "spectator")
             self.msg("^7Player {}^7 was moved to spectators to even teams."
-                     "Last ^6to connect^7 to server is chosen to spectate."
                      .format(player.name))
+            self.msg("^7The last ^6to connect^7 to server is chosen to spectate.")
