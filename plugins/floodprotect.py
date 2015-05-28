@@ -187,7 +187,9 @@ class floodprotect(minqlbot.Plugin):
             "vote": FloodProcessor(self, 3, 1.0), # Max. 3 votes in 3 seconds
             "vote_lowerf": FloodProcessor(self, 6, 1.0 / 3.0), # Max. 6 votes in 18 seconds
             "vote_lowestf": FloodProcessor(self, 20, 1.0 / 45.0), # Max. 20 votes in 15 minutes
-            "chat": FloodProcessor(self, 12, 1.0 / 0.6) # Max. 12 chat messages in 7,2 seconds
+            "chat_all": FloodProcessor(self, 6, 1.0 / 0.5),  # Max. 6 chat messages in 3 seconds
+            "chat_all_lowerf": FloodProcessor(self, 20, 1.0 / 0.75),  # Max. 20 chat messages in 15 seconds
+            "chat_all_lowestf": FloodProcessor(self, 30, 1.0)  # Max. 30 chat messages in 30 seconds
             }
 
     def handle_unload(self):
@@ -200,11 +202,11 @@ class floodprotect(minqlbot.Plugin):
         
     def handle_chat(self, player, msg, channel):
         for processor in self.flood_processors:
-            if (msg.startswith(minqlbot.COMMAND_PREFIX) and
-               processor.startswith("chat_command")):
-                self.flood_processors[processor].trigger_event(player)    
-            if processor.startswith("chat"):
-                self.flood_processors[processor].trigger_event(player)    
+            if processor.startswith("chat_command"):
+                if msg.startswith(minqlbot.COMMAND_PREFIX):
+                    self.flood_processors[processor].trigger_event(player)    
+            elif processor.startswith("chat_all"):
+                self.flood_processors[processor].trigger_event(player)
 
     def handle_player_disconnect(self, player, reason):
         for processor in self.flood_processors: 
