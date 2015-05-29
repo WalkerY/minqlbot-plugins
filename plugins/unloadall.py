@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlbot. If not, see <http://www.gnu.org/licenses/>.
 
+"""Command to load and unload all non-critical plugins at once.  """
 
 import minqlbot
 
