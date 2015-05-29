@@ -15,22 +15,30 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlbot. If not, see <http://www.gnu.org/licenses/>.
 
-"""Command to load and unload all non-critical plugins at once.  """
+"""Kicks players that are flooding bot with commands.  """
 
 import minqlbot
 
-__version__ = '0.1.0'
+__version__ = '0.9.0'
     
 class unloadall(minqlbot.Plugin):
     EXCEPTION_LIST = ["plugin_manager", "autoconnect", "unloadall", "permission"]
 
     def __init__(self):
         super().__init__()
+        
+        self.add_hook("console", self.handle_console)
+        
         self.add_command("unloadall", self.cmd_unloadall, 5)
         self.add_command("loadall", self.cmd_loadall, 5)
         
         self.unloaded = []
-  
+        
+    def handle_console(self, cmd):
+        if "You do not have the privileges required to use this command" in cmd:
+            self.cmd_unloadall(None, [], minqlbot.CHAT_CHANNEL)
+            self.msg("^1WARNING: ^7Plugins were unloaded because bot doesn't have op rigths.")
+          
     def cmd_unloadall(self, player, msg, channel):
         if "plugin_manager" in self.plugins:
             pm = self.plugins["plugin_manager"]
@@ -61,4 +69,4 @@ class unloadall(minqlbot.Plugin):
                         pm.cmd_load(None, ["", plugin], channel)
                     except:
                         self.msg("^7Ingorring erorrs.")        
-        
+                        
