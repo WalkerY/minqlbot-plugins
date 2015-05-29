@@ -15,7 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlbot. If not, see <http://www.gnu.org/licenses/>.
 
-"""Kicks players that are flooding bot with commands.  """
+"""Commands to unload and load all essential plugins at once
+ - "pause" bot.
+
+Unloads automatically all non-essential plugins when bot tries
+to perform command that requires op rights on server when bot
+doesn't have such rights.
+
+"""
 
 import minqlbot
 
