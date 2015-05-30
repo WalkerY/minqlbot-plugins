@@ -82,4 +82,4 @@ class autospec(minqlbot.Plugin):
             self.put(player, "spectator")
             self.msg("^7Player {}^7 was moved to spectators to even teams."
                      .format(player.name))
-            self.msg("^7The last ^6to connect^7 to server is chosen to spectate.")
+        self.msg("^7The last ^6to connect^7 to server is chosen to spectate.")
