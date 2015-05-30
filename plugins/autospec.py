@@ -20,27 +20,35 @@ teams are uneven. Last connect - first to spec order.
 
 Players that connected before loading plugin won't be speced.
 
+Config sample:
+# [AutoSpec]
+# ExcludeList = WalkerX, WalkerY, WalkerZ
+
 """
 
 import minqlbot
 import collections
 
-__version__ = '0.9.0'
-
-# List of excluded from specing.
-EXCLUDE_LIST = ["walkerx", "walkerz", "walkery"]
-         
-         
 class autospec(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
+        
+        self.__version__ = '1.0.0'        
+        
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("round_start", self.handle_round_start)
         # We don't hook bot_connect as we don't manage players
         # for whom we don't know when they connected.
-        
+            
         self.connects = collections.OrderedDict()
+        
+        config = minqlbot.get_config()
+        if "AutoSpec" in config and "ExcludeList" in config["AutoSpec"]:
+            list = config["AutoSpec"]["ExcludeList"]
+            self.exclude_list = [s.strip().lower() for s in list.split(",")]
+        else:
+            self.exclude_list = []
         
     def handle_player_disconnect(self, player, reason):
         name = player.clean_name.lower()
@@ -49,7 +57,7 @@ class autospec(minqlbot.Plugin):
 
     def handle_player_connect(self, player):
         name = player.clean_name.lower()
-        if name in EXCLUDE_LIST:
+        if name in self.exclude_list:
             return
         self.connects[name] = player
 
@@ -58,15 +66,15 @@ class autospec(minqlbot.Plugin):
         count = {"red": len(teams["red"]), "blue":len(teams["blue"])}        
         another_team = {"red": "blue", "blue": "red"}
         players = []
-        counter = {"red": 0, "blue": 0}
 
         for team in another_team:
+                counter = 0
                 for player_name in reversed(self.connects):
-                    if (count[team] - counter[team] > count[another_team[team]] and 
-                        count[team] - counter[team] >= 2):
+                    if (count[team] - counter > count[another_team[team]] and 
+                        count[team] - counter >= 2):
                         if self.connects[player_name].team == team:
                             players.append(self.connects[player_name])
-                            counter[team] += 1
+                            counter += 1
                     else:
                         break
         
