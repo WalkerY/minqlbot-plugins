@@ -30,7 +30,7 @@ doesn't have such rights.
 import minqlbot
 import traceback
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
     
 class unloadall(minqlbot.Plugin):
     EXCEPTION_LIST = ["plugin_manager", "autoconnect", "unloadall", 
@@ -41,6 +41,12 @@ class unloadall(minqlbot.Plugin):
         "^7They were unloaded automatically as bot didn't have op permission."
     LOAD_HELP_MSG = \
         "^7You can load all plugins with command ^6!loadall^2."
+    REFEREE_MSG = "{} has become a referee".format(minqlbot.NAME).lower()
+    AUTO_UNLOAD_MSG = ("^1WARNING: ^7Bot plugins were unloaded "
+                       "because bot doesn't have op rigths.")
+    AUTO_LOAD_MSG = ("^2WARNING: ^7Bot plugins were loaded "
+                     "because bot was granted op rigths.")    
+                       
 
     PERMISSION_LOAD = 5
     PERMISSION_RESTART = 5
@@ -72,8 +78,17 @@ class unloadall(minqlbot.Plugin):
                 "required to use this command") in cmd:
                 self.cmd_unloadall(None, [], minqlbot.CHAT_CHANNEL)
                 self.auto_unloaded = True            
-                self.msg("^1WARNING: ^7Bot plugins were unloaded "
-                         "because bot doesn't have op rigths.")
+                self.msg(self.AUTO_UNLOAD_MSG)
+        elif (self.auto_unloaded and 
+              len(self.unloaded) != 0 and
+              ":" not in cmd and
+              self.REFEREE_MSG in self.clean_text(cmd.lower())):
+            self.cmd_loadall(None, [], minqlbot.CHAT_CHANNEL)
+            self.auto_unloaded = False
+            self.msg("^2WARNING: ^7Bot plugins were loaded "
+                     "because bot was granted op rigths.") 
+             
+             
 
     def cmd_plugins(self, player, msg, channel):
         reply = "^7Currently loaded plugins: ^6"
