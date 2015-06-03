@@ -33,11 +33,13 @@ class autospec(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
         
-        self.__version__ = '1.0.0'        
+        self.__version__ = '1.2.0'        
         
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("player_connect", self.handle_player_connect)
-        self.add_hook("round_start", self.handle_round_start)
+        self.add_hook("round_start", self.handle_round_start, priority=minqlbot.PRI_HIGH)
+        self.add_hook("round_countdown", self.handle_round_countdown, priority=minqlbot.PRI_HIGH) 
+        self.add_hook("game_countdown", self.handle_game_countdown, priority=minqlbot.PRI_HIGH)
         # We don't hook bot_connect as we don't manage players
         # for whom we don't know when they connected.
             
@@ -49,7 +51,7 @@ class autospec(minqlbot.Plugin):
             self.exclude_list = [s.strip().lower() for s in list.split(",")]
         else:
             self.exclude_list = []
-        
+            
     def handle_player_disconnect(self, player, reason):
         name = player.clean_name.lower()
         if name in self.connects:
@@ -61,9 +63,22 @@ class autospec(minqlbot.Plugin):
             return
         self.connects[name] = player
 
-    def handle_round_start(self, round_):    
+    def handle_game_countdown(self):
+        self.auto_spec()    
+        
+    def handle_round_start(self, round_):
+        self.auto_spec()
+        
+    def handle_round_countdown(self, round_):    
+        self.auto_spec()
+
+    def auto_spec(self):
         teams = self.teams()        
         count = {"red": len(teams["red"]), "blue":len(teams["blue"])}        
+        
+        if count["red"] == count["blue"]:   
+            return
+        
         another_team = {"red": "blue", "blue": "red"}
         players = []
 
@@ -82,4 +97,10 @@ class autospec(minqlbot.Plugin):
             self.put(player, "spectator")
             self.msg("^7Player {}^7 was moved to spectators to even teams."
                      .format(player.name))
-        self.msg("^7The last ^6to connect^7 to server is chosen to spectate.")
+            self.msg("^7The last ^6to connect^7 to server is chosen to spectate.")   
+
+            #if "ban" in self.plugins:
+            #    with self.plugins["ban"].players_start_lock:
+            #        if player in self.plugins["ban"].players_start:
+            #            self.plugins["ban"].players_start.remove(player)
+                
