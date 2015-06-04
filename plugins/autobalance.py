@@ -26,10 +26,11 @@ class autobalance(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
         
-        self.__version__ = '1.0.0'
+        self.__version__ = '1.1.0'
         
         self.add_hook("game_countdown", self.handle_game_countdown)
         self.add_hook("round_countdown", self.handle_round_countdown)
+        self.add_hook("team_switch", self.handle_team_switch)
 
         self.teams_changed = True
 
