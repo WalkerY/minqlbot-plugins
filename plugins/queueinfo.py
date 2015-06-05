@@ -92,6 +92,7 @@ class queueinfo(minqlbot.Plugin):
             if name in self.queue:
                 if "disconnectTime" in self.queue[name]:
                     del self.queue[name]["disconnectTime"]
+                    self.queue[name]["player"] = player
 
         self.remove_bot()
         
@@ -107,8 +108,8 @@ class queueinfo(minqlbot.Plugin):
             if "pendingRemovalTime" in self.queue[name]:
                 del self.queue[name]["pendingRemovalTime"]
             self.queue[name]["disconnectTime"] = datetime.datetime.now()
-        #if name in self.queue:
-        #    del self.queue[name]
+            # player instance not valid anymore
+            del self.queue[name]["player"]
             
     def handle_team_switch(self, player, old_team, new_team):
         name = player.clean_name.lower()
@@ -130,7 +131,8 @@ class queueinfo(minqlbot.Plugin):
         # Start counting playtime for all players
         # that have been in queue
         for name in self.queue:
-            if (self.queue[name]["player"].team != "spectator" and
+            if ("player" in self.queue[name] and
+                self.queue[name]["player"].team != "spectator" and
                 "pendingRemoval" in self.queue[name] and
                 self.queue[name]["pendingRemoval"] and
                "pendingRemovalTime" not in self.queue[name]):
