@@ -44,7 +44,7 @@ import time
 class queueinfo(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.9.9"
+        self.__version__ = "0.9.10"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
@@ -324,6 +324,7 @@ class queueinfo(minqlbot.Plugin):
                 if (delta.days > 0 or 
                     delta.seconds > self.PENDING_REMOVAL_TIME):
                     del self.queue[name]
+        if name in self.queue:                    
             if "disconnectTime" in self.queue[name]:
                 delta = datetime.datetime.now() - \
                         self.queue[name]["disconnectTime"]
