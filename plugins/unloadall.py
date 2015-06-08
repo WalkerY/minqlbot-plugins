@@ -30,11 +30,9 @@ doesn't have such rights.
 import minqlbot
 import traceback
 
-__version__ = '1.1.0'
-    
 class unloadall(minqlbot.Plugin):
     EXCEPTION_LIST = ["plugin_manager", "autoconnect", "unloadall", 
-                      "permission"]
+                      "permission", "logger"]
     NO_PLUGINS_MSG = \
         "^1WARNING: ^7Bot plugins are ^6disabled^7."
     AUTO_UNLOADED_MSG = \
@@ -54,12 +52,15 @@ class unloadall(minqlbot.Plugin):
         
     def __init__(self):
         super().__init__()
+        self.__version__ = '1.0.1'
+        
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("console", self.handle_console)        
         self.add_command("unloadall", self.cmd_unloadall, self.PERMISSION_LOAD)
         self.add_command("loadall", self.cmd_loadall, self.PERMISSION_LOAD)
         self.add_command("plugins", self.cmd_plugins, self.PERMISSION_PLUGINS)
         self.add_command("restart", self.cmd_restart, self.PERMISSION_RESTART)
+        self.add_command("version", self.cmd_version, 0)
         
         self.unloaded = []
         self.auto_unloaded = False
@@ -88,7 +89,8 @@ class unloadall(minqlbot.Plugin):
             self.msg("^2WARNING: ^7Bot plugins were loaded "
                      "because bot was granted op rigths.") 
              
-             
+    def cmd_version(self, player, msg, channel):    
+        channel.reply("^6UnloadAll^7 plugin version ^6{}^7, author: ^6WalkerY^7 (github)".format(self.__version__))             
 
     def cmd_plugins(self, player, msg, channel):
         reply = "^7Currently loaded plugins: ^6"
