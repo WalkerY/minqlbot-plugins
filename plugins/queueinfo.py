@@ -21,6 +21,10 @@ seconds or after they have been disconnected for ABSENT_REMOVAL_TIME seconds.
 When they are playing and in queue they are marked green. Whey they are disconnected
 and still in queue they are marked black.
 
+NOTE !!!! Plugin assumes that you are not playing on bot account and bot account
+is never shown in queue. This may be configurable in future releases.
+
+>> Setrule command is work in progress.
 Setrule command allows one to introduce non-standard playing order rule so
 that it is displayed when players connect and also when they use !queue
 command.
@@ -40,29 +44,32 @@ Config sample:
 import minqlbot
 import datetime
 import time
+import string
 
 class queueinfo(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.9.10"
+        self.__version__ = "0.11.0"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
         self.add_hook("round_start", self.handle_round_start, priority=minqlbot.PRI_LOWEST)
         self.add_hook("round_end", self.handle_round_end, priority=minqlbot.PRI_LOWEST)        
+        self.add_hook("bot_disconnect", self.handle_bot_disconnect)
+        self.add_hook("bot_connect", self.handle_bot_connect)                
         self.add_command(("queue", "kolejka", "q", "k"), self.cmd_queue, 0)
         self.add_command(("playing", "here", "notafk", "waiting"), self.cmd_playing, 0)
         self.add_command(("notplaying", "afk", "gone", "bye", "brb", "bb"), self.cmd_notplaying, 0)
-        self.add_command("setrule", self.cmd_setrule, 5, usage="<rule>")
+        self.add_command("setrule", self.cmd_setrule, 5, usage="<rule> <time> (time=HH:MM)")
         self.add_command("remrule", self.cmd_remrule, 5)
         self.add_command("version", self.cmd_version, 0)
 
         # Minimum play time before removal from queue in seconds.
-        self.PENDING_REMOVAL_TIME = 120
+        self.PENDING_REMOVAL_TIME = 240
 
         # Minimum absent time after leaving server before removal from
         # queue in seconds.
-        self.ABSENT_REMOVAL_TIME = 120
+        self.ABSENT_REMOVAL_TIME = 240
         
         # List of players in queue, their queue join times and other info as required.
         # {"walkerx": {"joinTime": datetime}}
@@ -71,8 +78,13 @@ class queueinfo(minqlbot.Plugin):
         self.initialize()
 
         self.rule = ""
+        self.rule_time = None
+        #self.rule = "TOP COMMAND ALLOWED"
+        #self.rule_time = datetime.time(18)
+        #self.standard_template = "[RULE] after [TIME] Warsaw local time. Try !time."
         
     def initialize(self):
+        self.queue = {}
         specs = self.teams()["spectator"]
         for spec in specs:
             name = spec.clean_name.lower()
@@ -80,6 +92,12 @@ class queueinfo(minqlbot.Plugin):
                 self.add(spec)
                 time.sleep(0.01) # let's make each time differ always internally
         self.remove_bot()
+    
+    def handle_bot_connect(self):
+        self.initialize()
+    
+    def handle_bot_disconnect(self):
+        pass
     
     def handle_player_connect(self, player):
         name = player.clean_name.lower()
@@ -101,6 +119,8 @@ class queueinfo(minqlbot.Plugin):
         
     def handle_player_disconnect(self, player, reason):
         name = player.clean_name.lower()
+        # Remove afk info as we have activity.
+        self.mark_playing(name)
         self.try_removal(name)
         if name in self.queue:
             if "pendingRemoval" in self.queue[name]:
@@ -120,6 +140,9 @@ class queueinfo(minqlbot.Plugin):
                 self.cancel_pending_remove(name)
         elif new_team != "spectator":
             if name in self.queue:
+                # Remove afk info as we have activity.
+                self.mark_playing(name)
+                
                 self.pending_remove(name)
                 
         self.remove_bot()
@@ -144,12 +167,29 @@ class queueinfo(minqlbot.Plugin):
                     
     def cmd_remrule(self, player, msg, channel):    
         self.rule = ""
+        self.rule_time = None
         self.msg("^7Queue rule removed. Normal playing order now.")
 
     def cmd_setrule(self, player, msg, channel):    
         if len(msg) < 2:
             return minqlbot.RET_USAGE
-        self.rule = " ".join(msg[1:])
+        
+        input = msg[len(msg)-1].strip()
+        is_time = False
+        if input[0] in string.digits:
+            try:
+                time.strptime(input, '%H:%M')
+                is_time = True
+            except ValueError:
+                return minqlbot.RET_USAGE
+            
+        if is_time:
+            self.rule = " ".join(msg[1:-1]).upper()
+            self.rule_time = datetime.time(input[:2], input[3:5])
+        else:
+            self.rule = " ".join(msg[1:])
+            self.rule_time = None
+   
         self.msg("^7Playing order rule: ^6{}^7.".format(self.rule))
         
     def cmd_playing(self, player, msg, channel):    
@@ -266,9 +306,18 @@ class queueinfo(minqlbot.Plugin):
                             player_.tell("^7Due to a long waiting time, you have been automatically marked as NOT PLAYING.")
                         player_.tell("^7{} ^7to change your status to WAITING type ^6!waiting^7 in chat".format(player_.name))
                 
-            if self.rule != "":
-                channel.reply("^1WARNING ^7!!! Custom order rule: ^6{}".format(self.rule))
+        if self.rule != "":
+            channel.reply("^1WARNING ^7!!! Custom order rule: ^6{}".format(self.rule))
 
+    def get_rule_str(self):
+        self.rule = " ".join(msg[1:]).upper()
+        self.rule_time = None
+        self.standard_template = "[RULE] after [TIME] Warsaw local time. Try !time."
+        if self.rule_time is not None:
+            return self.standard_template.replace("[RULE]", self.rule).replace("[TIME]", "{}:{}".format(self.rule_time.hour, self.rule_time.minute))
+        else:
+            return self.rule
+        
     # check if marked as Not Playing
     def is_notplaying(self, name):
         if name in self.queue and "notPlaying" in self.queue[name]:
@@ -356,3 +405,7 @@ class queueinfo(minqlbot.Plugin):
         if "Core" in config and "Nickname" in config["Core"]:
             if config["Core"]["Nickname"].lower() in self.queue:
                 del self.queue[config["Core"]["Nickname"].lower()]
+                
+    # ======== Code for cooperation with top plugin and others. =========
+    def get_notplaying(self):
+        return [name for name in self.queue[name] if self.is_notplaying(name)]
