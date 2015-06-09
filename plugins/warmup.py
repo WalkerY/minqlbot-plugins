@@ -26,7 +26,7 @@ import traceback
 class warmup(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
-        __version__ = '1.1.0'
+        self.__version__ = '1.1.0'
         
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_command("version", self.cmd_version, 0)        
