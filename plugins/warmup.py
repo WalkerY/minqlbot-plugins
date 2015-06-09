@@ -26,11 +26,15 @@ import traceback
 class warmup(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
-        __version__ = '1.0.0'
+        __version__ = '1.1.0'
         
         self.add_hook("player_connect", self.handle_player_connect)
+        self.add_command("version", self.cmd_version, 0)        
        
     def handle_player_connect(self, player):
         self.delay(20, lambda: 
             player.tell("^7{} please warmup before joining. To warmup type ^6join walkerz^7 in console.".format(player.name)))
+            
+    def cmd_version(self, player, msg, channel):    
+        channel.reply("^6Warmup^7 plugin version ^6{}^7, author: ^6WalkerY^7 (github)".format(self.__version__))                   
         
