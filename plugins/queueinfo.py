@@ -123,7 +123,7 @@ class queueinfo(minqlbot.Plugin):
 
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.13.0"
+        self.__version__ = "0.13.1"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
@@ -455,10 +455,21 @@ class queueinfo(minqlbot.Plugin):
         else:
             return False
 
+    def is_on_spec(self, name):
+        pl = self.find_player(name)
+        if pl is not None:
+            if pl.team == "spectator":
+                return True
+            else:
+                return False
+        else:
+            return False
     
     # Returns true if marking as not playing was 
     # required by the waiting time
     def try_set_notplaying(self, name):
+        if not is_on_spec(name):
+            return False
         maxwaitingtime = self.get_max_waiting_time()
 
         time_now = datetime.datetime.now()
@@ -527,7 +538,10 @@ class queueinfo(minqlbot.Plugin):
             self.try_removal(name)
         
     def try_removal(self, name):
-        '''We remove only if player played for some time.  '''
+        '''We remove only if player played for some time or
+        has been absent for specified time.  
+        
+        '''
         if name in self.queue:
             if "pendingRemovalTime" in self.queue[name]:
                 delta = datetime.datetime.now() - \
