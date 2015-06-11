@@ -123,7 +123,7 @@ class queueinfo(minqlbot.Plugin):
 
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.13.1"
+        self.__version__ = "0.13.1b"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
@@ -468,7 +468,7 @@ class queueinfo(minqlbot.Plugin):
     # Returns true if marking as not playing was 
     # required by the waiting time
     def try_set_notplaying(self, name):
-        if not is_on_spec(name):
+        if not self.is_on_spec(name):
             return False
         maxwaitingtime = self.get_max_waiting_time()
 
