@@ -99,15 +99,20 @@ class queueinfo(minqlbot.Plugin):
             list = []
             queue = self._plugin.queue
             self._plugin.update_and_remove_banned_from_joining()
+            
             for name in queue:
                 self._plugin.try_set_notplaying(name)
-                if not self._plugin.is_notplaying(name):
-                    with self._plugin.players_to_remove_lock:
-                        if name not in self._plugin.players_to_remove:
-                            continue
-                pl = self._plugin.find_player(name)
-                if pl is not None:
-                    list.append(pl)
+                if self._plugin.is_notplaying(name):
+                    pl = self._plugin.find_player(name)
+                    if pl is not None:
+                        list.append(pl)
+
+            with self._plugin.players_to_remove_lock:
+                for player_name in self._plugin.players_to_remove:
+                    pl = self._plugin.players_to_remove[player_name]
+                    if pl not in list:
+                        list.append(pl)
+
             return list
             
         @property
@@ -131,7 +136,7 @@ class queueinfo(minqlbot.Plugin):
 
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.13.3"
+        self.__version__ = "0.13.4"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
