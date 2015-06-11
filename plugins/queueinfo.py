@@ -91,15 +91,23 @@ class queueinfo(minqlbot.Plugin):
                 
         @property
         def not_playing_players(self):
+            '''We return list of players marked afk/not playing and flagged
+            by external data soruces - banned from playing (ban, balance 
+            plugins).
+            
+            '''
             list = []
             queue = self._plugin.queue
             self._plugin.update_and_remove_banned_from_joining()
             for name in queue:
                 self._plugin.try_set_notplaying(name)
-                if self._plugin.is_notplaying(name):
-                    pl = self._plugin.find_player(name)
-                    if pl is not None:
-                        list.append(pl)
+                if not self._plugin.is_notplaying(name):
+                    with self._plugin.players_to_remove_lock:
+                        if name not in self._plugin.players_to_remove:
+                            continue
+                pl = self._plugin.find_player(name)
+                if pl is not None:
+                    list.append(pl)
             return list
             
         @property
@@ -123,7 +131,7 @@ class queueinfo(minqlbot.Plugin):
 
     def __init__(self):
         super().__init__()
-        self.__version__ = "0.13.1b"
+        self.__version__ = "0.13.3"
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("team_switch", self.handle_team_switch)
@@ -588,10 +596,9 @@ class queueinfo(minqlbot.Plugin):
                 
     def remove_found_to_be_banned_from_joining(self):
         with self.players_to_remove_lock:
-            for player_name in self.players_to_remove.copy():
+            for player_name in self.players_to_remove:
                 if player_name in self.queue:
                     del self.queue[player_name]
-                del self.players_to_remove[player_name]
 
     def update_players_to_remove_list(self):
         players_to_remove = {}
@@ -618,7 +625,5 @@ class queueinfo(minqlbot.Plugin):
                         "Incompatible " + plugin + " plugin or its version.")
                         
         with self.players_to_remove_lock:
-            for name in players_to_remove:
-                if name not in self.players_to_remove:
-                    self.players_to_remove[name] = players_to_remove[name]                        
+            self.players_to_remove = players_to_remove
                     
