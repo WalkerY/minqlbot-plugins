@@ -44,7 +44,7 @@ class autobalance(minqlbot.Plugin):
     def __init__(self):
         super().__init__()
         
-        self.__version__ = '1.3.0'
+        self.__version__ = '1.3.1'
         
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("game_countdown", self.handle_game_countdown)
@@ -87,6 +87,7 @@ class autobalance(minqlbot.Plugin):
         if "balance" not in self.plugins:
             return
         balance = self.plugins["balance"]
+        channel = minqlbot.CHAT_CHANNEL        
         teams = self.teams()
         teams = teams["red"] + teams["blue"]
         not_cached = balance.not_cached(self.game().short_type, teams)
