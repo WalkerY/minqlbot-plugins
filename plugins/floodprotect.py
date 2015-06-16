@@ -15,14 +15,36 @@
 # You should have received a copy of the GNU General Public License
 # along with minqlbot. If not, see <http://www.gnu.org/licenses/>.
 
-"""Kicks players that are flooding bot with commands.  """
+"""Kicks players that are flooding / spamming.  
+
+Sample config:
+######################################
+[FloodProtect]
+
+DefaultBanDuration = 1 hour
+DefaultBanReason = Flood / spam detected.
+NeverBanPlayersList = WalkerX, WalkerY, WalkerZ
+######################################
+
+Default ban schemes:
+# Max. 4 commands in 4 seconds
+# Max. 6 commands in 18 seconds
+# Max. 20 commands in 15 minutes
+# Max. 3 votes in 3 seconds
+# Max. 6 votes in 18 seconds
+# Max. 20 votes in 15 minutes
+# Max. 6 chat messages in 3 seconds
+# Max. 20 chat messages in 15 seconds
+# Max. 30 chat messages in 30 seconds
+
+"""
 
 import minqlbot
 import datetime
 import collections
 import threading
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
     
 class FloodProcessor:
     # Number of samples we collect in order to determine if player is
@@ -35,6 +57,9 @@ class FloodProcessor:
     # command in 'ban' plugin.
     DEFAULT_BAN_DURATION = "1 hour"
     DEFAULT_BAN_REASON = "Flood detected."
+    
+    # We never ban players on exception list.
+    EXCEPTION_LIST_PLAYERS = []
 
     # Timeout for local cache of recently banned flooding players
     COMMAND_FLOOD_BANNED_TIMEOUT = 30
@@ -92,6 +117,9 @@ class FloodProcessor:
     def trigger_event(self, player):
         name = player.clean_name.lower()
         if name == minqlbot.NAME.lower():
+            return
+            
+        if name in self.EXCEPTION_LIST_PLAYERS:
             return
             
         with self.banned_lock:
@@ -171,6 +199,11 @@ class FloodProcessor:
          
 
 class floodprotect(minqlbot.Plugin):
+    config_defaults = {"DefaultBanDuration": "1 hour",
+                       "DefaultBanReason": "Flood / spam detected.",
+                       "NeverBanPlayersList": []}
+    config = {}
+
     flood_processors = {}
 
     def __init__(self):
@@ -180,6 +213,12 @@ class floodprotect(minqlbot.Plugin):
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("unload", self.handle_unload)
 
+        self.get_config(self.config_defaults, self.config, "FloodProtect")    
+        FloodProcessor.DEFAULT_BAN_DURATION = self.config["DefaultBanDuration"]
+        FloodProcessor.DEFAULT_BAN_REASON = self.config["DefaultBanReason"]
+        FloodProcessor.EXCEPTION_LIST_PLAYERS = [x.lower() for x in self.config["NeverBanPlayersList"]]
+        
+        
         self.flood_processors = {
             "chat_command": FloodProcessor(self, 4, 1.0), # Max. 4 commands in 4 seconds
             "chat_command_lowerf": FloodProcessor(self, 6, 1.0 / 3.0), # Max. 6 commands in 18 seconds
@@ -211,4 +250,44 @@ class floodprotect(minqlbot.Plugin):
     def handle_player_disconnect(self, player, reason):
         for processor in self.flood_processors: 
             self.flood_processors[processor].clear_player_events(player)
-        
+
+    def get_config(self, defaults, config, section_name, param = ""):
+        if param == "":
+            for name in defaults:
+                if name != "":
+                    config[name] = self.get_config(defaults, config, section_name, name)
+                    self.debug("Config param {} set to {}".format(name, config[name]))
+                else:
+                    RuntimeError("Empty config variable name")
+            return None
+            
+        config_all = minqlbot.get_config()
+        fallback = defaults[param]
+        try:
+            section = section_name
+            if section in config_all and param in config_all[section]:
+                if type(fallback) is bool:
+                    value = config_all[section][param].strip().lower()
+                    if value == "true":
+                        ret = True
+                    elif value == "false":
+                        ret = False
+                    else:
+                        raise TypeError("Unrecognized value")
+                elif type(fallback) is int:
+                    ret = int(config_all[section][param])
+                elif type(fallback) is list:
+                    ret = [x.strip() for x in config_all[section][param].split(",")]
+                elif type(fallback) is str:
+                    ret = config_all[section][param].strip()
+                elif type(fallback) is datetime.time:
+                    ret = datetime.datetime.strptime(config_all[section][param].strip(), '%H:%M').time()
+                else:
+                    raise TypeError("Unknown config parameter type.")
+            else:
+                ret = fallback
+        except TypeError as err:
+            ret = fallback
+            self.debug("TypeError: " + err)
+            
+        return ret    
