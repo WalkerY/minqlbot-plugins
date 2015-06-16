@@ -44,8 +44,6 @@ import datetime
 import collections
 import threading
 
-__version__ = '2.1.0'
-    
 class FloodProcessor:
     # Number of samples we collect in order to determine if player is
     # flooding bot. Each bot command sent to bot counts as 1 sample.
@@ -208,10 +206,12 @@ class floodprotect(minqlbot.Plugin):
 
     def __init__(self):
         super().__init__()
+        self.__version__ = '2.1.0'
         self.add_hook("chat", self.handle_chat, minqlbot.PRI_HIGH)
         self.add_hook("vote_called", self.handle_vote_called, minqlbot.PRI_HIGH)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_hook("unload", self.handle_unload)
+        self.add_command("version", self.cmd_version, 0)
 
         self.get_config(self.config_defaults, self.config, "FloodProtect")    
         FloodProcessor.DEFAULT_BAN_DURATION = self.config["DefaultBanDuration"]
@@ -250,6 +250,9 @@ class floodprotect(minqlbot.Plugin):
     def handle_player_disconnect(self, player, reason):
         for processor in self.flood_processors: 
             self.flood_processors[processor].clear_player_events(player)
+            
+    def cmd_version(self, player, msg, channel):    
+        channel.reply("^6FloodProtect^7 plugin version ^6{}^7, author: ^6WalkerY^7 (github)".format(self.__version__))            
 
     def get_config(self, defaults, config, section_name, param = ""):
         if param == "":
